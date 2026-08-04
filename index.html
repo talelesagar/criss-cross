@@ -6,15 +6,35 @@
 <title>Criss Cross — 2 Player</title>
 <style>
   :root {
+    --bg: #ffffff;
+    --board-bg: #f2f4f8;
+    --line: #dde1ea;
+    --cell-hover: #e6e9f2;
+    --x-color: #2563eb;
+    --o-color: #ea580c;
+    --win-bg: #ffd54f;
+    --win-text: #1b1f27;
+    --text: #1b1f27;
+    --muted: #6b7280;
+    --shadow: rgba(20, 24, 34, 0.14);
+    --body-grad-1: #eef1f7;
+    --body-grad-2: #dde2ec;
+  }
+
+  :root[data-theme="dark"] {
     --bg: #1b1f27;
     --board-bg: #232837;
     --line: #3a4257;
+    --cell-hover: #2b3244;
     --x-color: #5eb3ff;
     --o-color: #ff8a65;
     --win-bg: #ffd54f;
     --win-text: #1b1f27;
     --text: #eef1f7;
     --muted: #8b93a7;
+    --shadow: rgba(0, 0, 0, 0.5);
+    --body-grad-1: #262c3b;
+    --body-grad-2: #14171f;
   }
 
   * { box-sizing: border-box; }
@@ -25,9 +45,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: radial-gradient(circle at top, #262c3b, #14171f 70%);
+    background: radial-gradient(circle at top, var(--body-grad-1), var(--body-grad-2) 70%);
     font-family: "Segoe UI", system-ui, sans-serif;
     color: var(--text);
+    transition: background 0.25s ease, color 0.25s ease;
   }
 
   .game {
@@ -39,15 +60,37 @@
     padding: 32px 36px;
     background: var(--bg);
     border-radius: 20px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px var(--shadow);
+    transition: background 0.25s ease, box-shadow 0.25s ease;
   }
+
+  .theme-toggle {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: var(--board-bg);
+    color: var(--text);
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .theme-toggle:hover { transform: scale(1.1); }
 
   h1 {
     margin: 0;
     font-size: 1.8rem;
     letter-spacing: 2px;
   }
-  h1 .x { color: var(--x-color); }
+
+  .x { color: var(--x-color); font-weight: 700; }
+  .o { color: var(--o-color); font-weight: 700; }
 
   .status {
     margin: 0;
@@ -55,8 +98,6 @@
     color: var(--muted);
     min-height: 1.2em;
   }
-  .status .x { color: var(--x-color); font-weight: 700; }
-  .status .o { color: var(--o-color); font-weight: 700; }
 
   .board {
     position: relative;
@@ -80,9 +121,9 @@
     font-weight: 800;
     cursor: pointer;
     color: var(--text);
-    transition: background 0.2s ease, transform 0.15s ease;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
   }
-  .cell:hover:not(:disabled) { background: #2b3244; }
+  .cell:hover:not(:disabled) { background: var(--cell-hover); }
   .cell:disabled { cursor: default; }
 
   .cell.x { color: var(--x-color); }
@@ -139,6 +180,7 @@
 <body>
 
   <div class="game">
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark and light mode">🌙</button>
     <h1>Criss <span class="x">C</span>ross</h1>
     <p class="status" id="status">Player <span class="x">X</span>'s turn</p>
 
@@ -160,6 +202,25 @@
   </div>
 
 <script>
+  const root = document.documentElement;
+  const themeToggle = document.getElementById('themeToggle');
+
+  function applyTheme(theme) {
+    root.setAttribute('data-theme', theme);
+    themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+    themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+  }
+
+  const storedTheme = localStorage.getItem('theme');
+  const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(storedTheme || (systemPrefersDark ? 'dark' : 'light'));
+
+  themeToggle.addEventListener('click', () => {
+    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', next);
+    applyTheme(next);
+  });
+
   const cells = Array.from(document.querySelectorAll('.cell'));
   const statusEl = document.getElementById('status');
   const banner = document.getElementById('banner');
