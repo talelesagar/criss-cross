@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Criss Cross — 2 Player</title>
+<style>
+  :root {
+    --bg: #1b1f27;
+    --board-bg: #232837;
+    --line: #3a4257;
+    --x-color: #5eb3ff;
+    --o-color: #ff8a65;
+    --win-bg: #ffd54f;
+    --win-text: #1b1f27;
+    --text: #eef1f7;
+    --muted: #8b93a7;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at top, #262c3b, #14171f 70%);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+  }
+
+  .game {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 36px;
+    background: var(--bg);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    letter-spacing: 2px;
+  }
+  h1 .x { color: var(--x-color); }
+
+  .status {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--muted);
+    min-height: 1.2em;
+  }
+  .status .x { color: var(--x-color); font-weight: 700; }
+  .status .o { color: var(--o-color); font-weight: 700; }
+
+  .board {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(3, 100px);
+    grid-template-rows: repeat(3, 100px);
+    gap: 8px;
+    background: var(--line);
+    padding: 8px;
+    border-radius: 16px;
+  }
+
+  .cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--board-bg);
+    border: none;
+    border-radius: 10px;
+    font-size: 3rem;
+    font-weight: 800;
+    cursor: pointer;
+    color: var(--text);
+    transition: background 0.2s ease, transform 0.15s ease;
+  }
+  .cell:hover:not(:disabled) { background: #2b3244; }
+  .cell:disabled { cursor: default; }
+
+  .cell.x { color: var(--x-color); }
+  .cell.o { color: var(--o-color); }
+
+  .cell.win {
+    background: var(--win-bg);
+    color: var(--win-text);
+    animation: pulse 0.5s ease;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .banner {
+    position: absolute;
+    inset: 8px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 14px;
+    background: rgba(10, 12, 18, 0.85);
+    border-radius: 16px;
+    text-align: center;
+    animation: fadein 0.3s ease;
+  }
+  .banner.show { display: flex; }
+  .banner strong { font-size: 1.6rem; }
+
+  @keyframes fadein {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .reset {
+    margin-top: 4px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 999px;
+    background: #7c5cff;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .reset:hover { background: #6a4ce0; transform: translateY(-1px); }
+</style>
+</head>
+<body>
+
+  <div class="game">
+    <h1>Criss <span class="x">C</span>ross</h1>
+    <p class="status" id="status">Player <span class="x">X</span>'s turn</p>
+
+    <div class="board" id="board">
+      <button class="cell" data-index="0"></button>
+      <button class="cell" data-index="1"></button>
+      <button class="cell" data-index="2"></button>
+      <button class="cell" data-index="3"></button>
+      <button class="cell" data-index="4"></button>
+      <button class="cell" data-index="5"></button>
+      <button class="cell" data-index="6"></button>
+      <button class="cell" data-index="7"></button>
+      <button class="cell" data-index="8"></button>
+
+      <div class="banner" id="banner"><strong id="bannerText"></strong></div>
+    </div>
+
+    <button class="reset" id="reset">↻ New Game</button>
+  </div>
+
+<script>
+  const cells = Array.from(document.querySelectorAll('.cell'));
+  const statusEl = document.getElementById('status');
+  const banner = document.getElementById('banner');
+  const bannerText = document.getElementById('bannerText');
+  const resetBtn = document.getElementById('reset');
+
+  const LINES = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6],
+  ];
+
+  let board = Array(9).fill(null);
+  let current = 'X';
+  let over = false;
+
+  function checkResult() {
+    for (const line of LINES) {
+      const [a, b, c] = line;
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        return { winner: board[a], line };
+      }
+    }
+    if (board.every(Boolean)) return { winner: null, line: [] };
+    return null;
+  }
+
+  function setStatus(symbol) {
+    statusEl.innerHTML = `Player <span class="${symbol.toLowerCase()}">${symbol}</span>'s turn`;
+  }
+
+  function handleClick(cell) {
+    const i = Number(cell.dataset.index);
+    if (over || board[i]) return;
+
+    board[i] = current;
+    cell.textContent = current;
+    cell.classList.add(current.toLowerCase());
+    cell.disabled = true;
+
+    const result = checkResult();
+    if (result) {
+      over = true;
+      cells.forEach(c => c.disabled = true);
+      if (result.winner) {
+        result.line.forEach(idx => cells[idx].classList.add('win'));
+        bannerText.innerHTML = `Player <span class="${result.winner.toLowerCase()}">${result.winner}</span> wins! 🎉`;
+      } else {
+        bannerText.textContent = "It's a draw!";
+      }
+      banner.classList.add('show');
+      return;
+    }
+
+    current = current === 'X' ? 'O' : 'X';
+    setStatus(current);
+  }
+
+  cells.forEach(cell => cell.addEventListener('click', () => handleClick(cell)));
+
+  resetBtn.addEventListener('click', () => {
+    board = Array(9).fill(null);
+    current = 'X';
+    over = false;
+    cells.forEach(c => {
+      c.textContent = '';
+      c.disabled = false;
+      c.className = 'cell';
+    });
+    banner.classList.remove('show');
+    setStatus('X');
+  });
+</script>
+
+</body>
+</html>
