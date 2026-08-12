@@ -150,6 +150,7 @@
     flex-direction: column;
     gap: 14px;
     background: rgba(10, 12, 18, 0.85);
+    color: #f5f6fa;
     border-radius: 16px;
     text-align: center;
     animation: fadein 0.3s ease;
@@ -175,6 +176,28 @@
     transition: transform 0.15s ease, background 0.15s ease;
   }
   .reset:hover { background: #6a4ce0; transform: translateY(-1px); }
+
+  .mode-select {
+    display: flex;
+    gap: 4px;
+    background: var(--board-bg);
+    border-radius: 999px;
+    padding: 4px;
+  }
+
+  .mode-btn {
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .mode-btn:hover:not(.active) { background: var(--cell-hover); }
+  .mode-btn.active { background: #7c5cff; color: #fff; }
 </style>
 </head>
 <body>
@@ -182,6 +205,12 @@
   <div class="game">
     <button class="theme-toggle" id="themeToggle" title="Toggle dark / light mode" aria-label="Toggle dark and light mode">🌙</button>
     <h1>Criss <span class="x">C</span>ross</h1>
+
+    <div class="mode-select" id="modeSelect">
+      <button class="mode-btn active" id="mode2p" data-mode="2p">2 Players</button>
+      <button class="mode-btn" id="mode1p" data-mode="1p">vs Computer</button>
+    </div>
+
     <p class="status" id="status">Player <span class="x">X</span>'s turn</p>
 
     <div class="board" id="board">
@@ -233,9 +262,12 @@
     [0, 4, 8], [2, 4, 6],
   ];
 
+  const modeButtons = Array.from(document.querySelectorAll('.mode-btn'));
+
   let board = Array(9).fill(null);
   let current = 'X';
   let over = false;
+  let mode = '2p'; // '2p' = two human players, '1p' = human (X) vs computer (O)
 
   function checkResult() {
     for (const line of LINES) {
@@ -249,17 +281,25 @@
   }
 
   function setStatus(symbol) {
-    statusEl.innerHTML = `Player <span class="${symbol.toLowerCase()}">${symbol}</span>'s turn`;
+    if (mode === '1p') {
+      const label = symbol === 'X' ? 'Your turn' : "Computer's turn";
+      statusEl.innerHTML = `<span class="${symbol.toLowerCase()}">${label}</span>`;
+    } else {
+      statusEl.innerHTML = `Player <span class="${symbol.toLowerCase()}">${symbol}</span>'s turn`;
+    }
   }
 
-  function handleClick(cell) {
-    const i = Number(cell.dataset.index);
-    if (over || board[i]) return;
+  function syncBoardDisabled() {
+    cells.forEach((c, idx) => {
+      c.disabled = over || !!board[idx] || (mode === '1p' && current === 'O');
+    });
+  }
 
+  function applyMove(i) {
+    const cell = cells[i];
     board[i] = current;
     cell.textContent = current;
     cell.classList.add(current.toLowerCase());
-    cell.disabled = true;
 
     const result = checkResult();
     if (result) {
@@ -267,7 +307,12 @@
       cells.forEach(c => c.disabled = true);
       if (result.winner) {
         result.line.forEach(idx => cells[idx].classList.add('win'));
-        bannerText.innerHTML = `Player <span class="${result.winner.toLowerCase()}">${result.winner}</span> wins! 🎉`;
+        if (mode === '1p') {
+          const label = result.winner === 'X' ? 'You win! 🎉' : 'Computer wins!';
+          bannerText.innerHTML = `<span class="${result.winner.toLowerCase()}">${label}</span>`;
+        } else {
+          bannerText.innerHTML = `Player <span class="${result.winner.toLowerCase()}">${result.winner}</span> wins! 🎉`;
+        }
       } else {
         bannerText.textContent = "It's a draw!";
       }
@@ -277,11 +322,59 @@
 
     current = current === 'X' ? 'O' : 'X';
     setStatus(current);
+    syncBoardDisabled();
+
+    if (mode === '1p' && current === 'O') {
+      setTimeout(computerMove, 400);
+    }
   }
 
-  cells.forEach(cell => cell.addEventListener('click', () => handleClick(cell)));
+  function handleClick(cell) {
+    const i = Number(cell.dataset.index);
+    if (over || board[i]) return;
+    if (mode === '1p' && current === 'O') return;
+    applyMove(i);
+  }
 
-  resetBtn.addEventListener('click', () => {
+  function emptyIndices(bd) {
+    return bd.reduce((acc, v, i) => { if (!v) acc.push(i); return acc; }, []);
+  }
+
+  function evaluate(bd) {
+    for (const line of LINES) {
+      const [a, b, c] = line;
+      if (bd[a] && bd[a] === bd[b] && bd[a] === bd[c]) return bd[a];
+    }
+    return null;
+  }
+
+  function minimax(bd, player) {
+    const avail = emptyIndices(bd);
+    const winner = evaluate(bd);
+    if (winner === 'X') return { score: -10 };
+    if (winner === 'O') return { score: 10 };
+    if (avail.length === 0) return { score: 0 };
+
+    const moves = [];
+    for (const idx of avail) {
+      bd[idx] = player;
+      const result = minimax(bd, player === 'O' ? 'X' : 'O');
+      bd[idx] = null;
+      moves.push({ index: idx, score: result.score });
+    }
+
+    return player === 'O'
+      ? moves.reduce((best, m) => (m.score > best.score ? m : best))
+      : moves.reduce((best, m) => (m.score < best.score ? m : best));
+  }
+
+  function computerMove() {
+    if (over) return;
+    const best = minimax(board.slice(), 'O');
+    if (best && best.index !== undefined) applyMove(best.index);
+  }
+
+  function resetGame() {
     board = Array(9).fill(null);
     current = 'X';
     over = false;
@@ -292,6 +385,20 @@
     });
     banner.classList.remove('show');
     setStatus('X');
+  }
+
+  cells.forEach(cell => cell.addEventListener('click', () => handleClick(cell)));
+
+  resetBtn.addEventListener('click', resetGame);
+
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newMode = btn.dataset.mode;
+      if (newMode === mode) return;
+      mode = newMode;
+      modeButtons.forEach(b => b.classList.toggle('active', b === btn));
+      resetGame();
+    });
   });
 </script>
 
