@@ -325,7 +325,7 @@
     syncBoardDisabled();
 
     if (mode === '1p' && current === 'O') {
-      setTimeout(computerMove, 400);
+      setTimeout(computerMove, 1000);
     }
   }
 
@@ -368,10 +368,18 @@
       : moves.reduce((best, m) => (m.score < best.score ? m : best));
   }
 
+  const MISTAKE_CHANCE = 0.25; // odds the computer plays a random move instead of the optimal one
+
   function computerMove() {
     if (over) return;
-    const best = minimax(board.slice(), 'O');
-    if (best && best.index !== undefined) applyMove(best.index);
+    const avail = emptyIndices(board);
+    let index;
+    if (avail.length && Math.random() < MISTAKE_CHANCE) {
+      index = avail[Math.floor(Math.random() * avail.length)];
+    } else {
+      index = minimax(board.slice(), 'O').index;
+    }
+    applyMove(index);
   }
 
   function resetGame() {
